@@ -1,0 +1,25 @@
+{
+  "name": "card-engine",
+  "version": "1.0.0",
+  "description": "a game engine for online card games",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/minecrafterMc/card-engine.git"
+  },
+  "author": "minecrafterMc",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/minecrafterMc/card-engine/issues"
+  },
+  "homepage": "https://github.com/minecrafterMc/card-engine#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "phaser": "^3.90.0",
+    "socket.io": "^4.8.3"
+  }
+}
