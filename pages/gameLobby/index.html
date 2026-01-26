@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <input type="text" id="username" placeholder="Enter your username">
+    <button id="joinBtn" onclick="join()">Join Game Lobby</button>
+    <div id="users"><p>Players:</p></div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        socket.on("playerList", (e) => {
+            const usersDiv = document.getElementById("users");
+            usersDiv.innerHTML = "<p>Players:</p>";
+            console.log(e);
+            for (let user of e){
+                console.log(user.name);
+                const userEntry = document.createElement("div");
+                userEntry.textContent = `${user.name}`;
+                usersDiv.appendChild(userEntry);
+            }
+            //document.getElementById("users")
+        });
+        function join() {
+            const username = document.getElementById("username").value;
+            socket.emit("joinGame", { name: username });
+        }
+    </script>
+</body>
+</html>

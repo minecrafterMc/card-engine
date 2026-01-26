@@ -25,12 +25,10 @@
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    socket.on("connect", () => {
-      console.log("Connected to server");
+    socket.on("connect", (e) => {
+      
     });
-    socket.emit("joinGame", { game: "dutch" });
-    var shapeRed;
-    const cardColors = { h: "red", d: "red", p: "black", c: "black" };
+    const cardColors = { h: "red", d: "orange", s: "black", c: "blue" };
     const cardValues = ["A", 2, 3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K"];
     const shapes = {};
     const cards = {};
@@ -47,7 +45,7 @@
         );
       }
       var checker = setInterval(() => {
-        if (loaded >= 1) {
+        if (loaded >= 4) {
           clearInterval(checker);
           resolve();
         }
@@ -61,6 +59,7 @@
           cards[value + color] = renderCard(shapes[color], value);
         }
       }
+      cards["back"] = renderCard(null, "SPECIAL_BACK");
       const game = new Phaser.Game({
         type: Phaser.AUTO,
         width: window.innerWidth,
@@ -76,15 +75,18 @@
                 );
               }
             }
+            this.load.image("back", cards["back"].src);
           },
           create: create,
         },
       });
       function create() {
         scene = this;
-
-        hand = ["Ah", "10d", "3p", "Kc", "7h"];
-        displayHand();
+        socket.on("dealHand", (data) => {
+          hand = data.hand;
+          displayHand();
+        });
+        hand = ["5h", "7d", "Ks", "Ac", "10h"];
       }
       function displayHand(){
         for (let c of cards){
@@ -100,9 +102,15 @@
             cards[i].on('pointerout', function (pointer) {
                 this.y += 20;
             });
+            cards[i].on('pointerdown', function (pointer) {
+                socket.emit("playCard", { card: i });
+            });
 
         }
       }
     });
+    function debug (msg) {
+      socket.emit("debug", msg);
+    }
   </script>
 </html>

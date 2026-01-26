@@ -23,4 +23,4 @@ class Game {
     }
 }
 var hand = [];
-var lastCard = null;
+var lastCard = null; 

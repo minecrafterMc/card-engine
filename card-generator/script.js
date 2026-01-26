@@ -15,6 +15,25 @@ function RandomInt(min, max) {
 }
     function renderCard(shape,number){
         ctx.clearRect(0,0,canvas.width,canvas.height);
+        if (number == "SPECIAL_BACK"){
+            ctx.strokeStyle = detailColor;
+            ctx.fillStyle = cardBackground;
+            ctx.lineWidth = strokeWidth;
+            ctx.beginPath();
+            ctx.roundRect(10,10,cardWidth,cardHeight,20);
+        
+            ctx.fill();
+            ctx.stroke();
+            ctx.closePath();
+            ctx.fillStyle = detailColor;
+            ctx.font = "bold 48px serif";
+            ctx.textAlign = "center";
+            ctx.fillText("CARD",canvas.width/2,canvas.height/2-30);
+            ctx.fillText("ENGINE",canvas.width/2,canvas.height/2+30);
+            let img = document.createElement("img");
+            img.src = canvas.toDataURL();
+            return img;
+        }
         ctx.strokeStyle = shape.color;
         ctx.fillStyle = cardBackground;
         ctx.lineWidth = strokeWidth;
@@ -24,6 +43,7 @@ function RandomInt(min, max) {
         ctx.fill();
         ctx.stroke();
         ctx.closePath();
+            
         ctx.fillStyle = shape.color;
         ctx.textAlign = "left";
         ctx.font = "bold 48px serif";
