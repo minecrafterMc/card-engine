@@ -86,7 +86,10 @@
           hand = data.hand;
           displayHand();
         });
-        hand = ["5h", "7d", "Ks", "Ac", "10h"];
+        for (let i = 0; i< 6; i++){
+          hand.push(RandomInt(2,10)+["h","d","s","c"][RandomInt(0,3)]);
+        }
+        displayHand();
       }
       function displayHand(){
         for (let c of cards){

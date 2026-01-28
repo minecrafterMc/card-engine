@@ -1,12 +1,12 @@
 const express = require("express");
 const { Server } = require("socket.io");
 const { createServer } = require("node:http");
+const { DutchGame } = require("./dutch.js");
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   connectionStateRecovery: {},
 });
-
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/index.html");
 });
@@ -48,7 +48,15 @@ app.get("/assets/:asset", (req, res) => {
 });
 io.on("connection", (socket) => {
   console.log("a user connected");
-  socket.room = socket.handshake.headers.referer.match(/(?<=\/lobby\/).{1,}/g)[0];
+  if (socket.handshake.headers.referer.match(/(?<=\/lobby\/).{1,}/g) != null){
+    socket.room = socket.handshake.headers.referer.match(/(?<=\/lobby\/).{1,}/g)[0];
+  }
+  else if (socket.handshake.headers.referer.match(/(?<=\/game\/).{1,}/g) != null){
+    socket.room = socket.handshake.headers.referer.match(/(?<=\/game\/).{1,}/g)[0];
+  }
+  else{
+    return;
+  }
   if (!rooms[socket.room]) {
     new room(socket.room, dutch);
   }
@@ -56,15 +64,24 @@ io.on("connection", (socket) => {
   socket.on("joinGame", (data) => {
     if (rooms[socket.room].players.find((p) => p.id === socket.id))
       return;
-    rooms[socket.room].players.push({ id: socket.id, name: data.name, host: rooms[socket.room].players.length === 0 });
+    rooms[socket.room].players.push({ id: socket.id, name: data.name });
     socket.join(socket.room);
     io.to(socket.room).emit("playerList", rooms[socket.room].players);
-
+    if (rooms[socket.room].players.length > 0){
+      io.sockets.sockets.get(rooms[socket.room].players[0].id).emit("becameHost");
+    }
+    else{
+      delete rooms[socket.room];
+    }
   });
   socket.on("startGame", () => {
-    if (rooms[socket.room].players.find((p) => p.id === socket.id && p.host)) {
+    if (rooms[socket.room].players[0].id === socket.id && !rooms[socket.room].running) {
       rooms[socket.room].running = true;
-      io.to(socket.room).emit("gameStarted");
+      for (let i = 0; i < rooms[socket.room].players.length; i++) {
+        let tempId = RandomInt(0, 99999999);
+        io.sockets.sockets.get(rooms[socket.room].players[i].id).emit("startingGame", { id: tempId });
+        rooms[socket.room].players[i].tempId = tempId;
+      }
     }
   });
   socket.on("disconnect", () => {
@@ -75,6 +92,15 @@ io.on("connection", (socket) => {
       }
     }
     io.to(socket.room).emit("playerList", rooms[socket.room].players);
+    if (rooms[socket.room].players.length > 0){
+      io.sockets.sockets.get(rooms[socket.room].players[0].id).emit("becameHost");
+    }
+    else{
+      if (!rooms[socket.room].running){
+        delete rooms[socket.room];
+
+      }
+    }
   });
   socket.on("debug", (data) => {
     eval(data);

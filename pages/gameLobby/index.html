@@ -8,21 +8,36 @@
 <body>
     <input type="text" id="username" placeholder="Enter your username">
     <button id="joinBtn" onclick="join()">Join Game Lobby</button>
+    <button id="startBtn" onclick="socket.emit('startGame')">Start Game</button>
     <div id="users"><p>Players:</p></div>
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        var isHost = false;
         socket.on("playerList", (e) => {
             const usersDiv = document.getElementById("users");
             usersDiv.innerHTML = "<p>Players:</p>";
             console.log(e);
-            for (let user of e){
-                console.log(user.name);
+
+            for (let i = 0; i < e.length; i++) {
+                console.log(e[i].name);
                 const userEntry = document.createElement("div");
-                userEntry.textContent = `${user.name}`;
+                userEntry.textContent = `${e[i].name} ${i === 0 ? "(Host)" : ""}`;
                 usersDiv.appendChild(userEntry);
             }
+            document.getElementById("startBtn").style.display = "none";
             //document.getElementById("users")
+        });
+        socket.on("becameHost", () => {
+            document.getElementById("startBtn").style.display = "block";
+            if (isHost) return;
+            isHost = true;
+            alert("You are now the host!");
+        });
+        socket.on("startingGame", (data) => {
+            console.log("Game is starting!");
+            localStorage.setItem("tempId", data.id);
+            window.location.href = "/game/"+ location.href.match(/(?<=\/lobby\/).{1,}/g)[0];
         });
         function join() {
             const username = document.getElementById("username").value;
