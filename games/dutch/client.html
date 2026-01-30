@@ -24,8 +24,9 @@
   <script src="/card-generator"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    console.log(io);
     const socket = io();
-    socket.on("connect", (e) => {
+    socket.on("connection", (e) => {
       
     });
     const cardColors = { h: "red", d: "orange", s: "black", c: "blue" };
@@ -82,14 +83,14 @@
       });
       function create() {
         scene = this;
-        socket.on("dealHand", (data) => {
+        socket.emit("connectToGame", {
+          tempId: sessionStorage.getItem("tempId"),
+        });
+        socket.on("updateHand", (data) => {
+          console.log(data.hand);
           hand = data.hand;
           displayHand();
         });
-        for (let i = 0; i< 6; i++){
-          hand.push(RandomInt(2,10)+["h","d","s","c"][RandomInt(0,3)]);
-        }
-        displayHand();
       }
       function displayHand(){
         for (let c of cards){

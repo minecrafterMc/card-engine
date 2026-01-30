@@ -17,10 +17,10 @@
         socket.on("playerList", (e) => {
             const usersDiv = document.getElementById("users");
             usersDiv.innerHTML = "<p>Players:</p>";
-            console.log(e);
-
+            if (localStorage.getItem("CardEngine-username")) {
+                document.getElementById("username").value = localStorage.getItem("CardEngine-username");
+            }
             for (let i = 0; i < e.length; i++) {
-                console.log(e[i].name);
                 const userEntry = document.createElement("div");
                 userEntry.textContent = `${e[i].name} ${i === 0 ? "(Host)" : ""}`;
                 usersDiv.appendChild(userEntry);
@@ -35,12 +35,12 @@
             alert("You are now the host!");
         });
         socket.on("startingGame", (data) => {
-            console.log("Game is starting!");
-            localStorage.setItem("tempId", data.id);
+            sessionStorage.setItem("tempId", data.id);
             window.location.href = "/game/"+ location.href.match(/(?<=\/lobby\/).{1,}/g)[0];
         });
         function join() {
             const username = document.getElementById("username").value;
+            localStorage.setItem("CardEngine-username", username);
             socket.emit("joinGame", { name: username });
         }
     </script>

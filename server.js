@@ -50,15 +50,23 @@ io.on("connection", (socket) => {
   console.log("a user connected");
   if (socket.handshake.headers.referer.match(/(?<=\/lobby\/).{1,}/g) != null){
     socket.room = socket.handshake.headers.referer.match(/(?<=\/lobby\/).{1,}/g)[0];
+    if (!rooms[socket.room]) {
+    new room(socket.room, dutch);
   }
+  }
+  
   else if (socket.handshake.headers.referer.match(/(?<=\/game\/).{1,}/g) != null){
     socket.room = socket.handshake.headers.referer.match(/(?<=\/game\/).{1,}/g)[0];
+    if (!rooms[socket.room]) {
+    return;
+  }
+    socket.join(socket.room);
+        console.log("Player reconnected to game",rooms[socket.room]);
+        DutchGame(socket, rooms[socket.room]);
+
   }
   else{
     return;
-  }
-  if (!rooms[socket.room]) {
-    new room(socket.room, dutch);
   }
   socket.emit("playerList", rooms[socket.room].players );
   socket.on("joinGame", (data) => {
@@ -77,6 +85,7 @@ io.on("connection", (socket) => {
   socket.on("startGame", () => {
     if (rooms[socket.room].players[0].id === socket.id && !rooms[socket.room].running) {
       rooms[socket.room].running = true;
+      rooms[socket.room].starting = true;
       for (let i = 0; i < rooms[socket.room].players.length; i++) {
         let tempId = RandomInt(0, 99999999);
         io.sockets.sockets.get(rooms[socket.room].players[i].id).emit("startingGame", { id: tempId });
@@ -86,13 +95,13 @@ io.on("connection", (socket) => {
   });
   socket.on("disconnect", () => {
     for (let i = 0; i < rooms[socket.room].players.length; i++) {
-      if (rooms[socket.room].players[i].id === socket.id) {
+      if (rooms[socket.room].players[i].id === socket.id && !rooms[socket.room].starting) {
         rooms[socket.room].players.splice(i, 1);
         break;
       }
     }
     io.to(socket.room).emit("playerList", rooms[socket.room].players);
-    if (rooms[socket.room].players.length > 0){
+    if (rooms[socket.room].players.length > 0 && !rooms[socket.room].starting){
       io.sockets.sockets.get(rooms[socket.room].players[0].id).emit("becameHost");
     }
     else{
