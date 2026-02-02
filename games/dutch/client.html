@@ -89,7 +89,8 @@
               }
             }
             this.load.image("back", loadedImgs["back"].src);
-            this.load.image("background", "/assets/gradient.png")
+            this.load.image("background", "/assets/gradient.png");
+            this.load.audioSprite("cardFlaps","/assets/cardFlaps.json",["/assets/cardFlaps.ogg"]);
           },
           create: create,
           update: update
@@ -174,6 +175,7 @@
         });
         deckCard.on("pointerdown",function(pointer){
           socket.emit("drawFromDeck");
+          scene.sound.playAudioSprite("cardFlaps","flap0"+RandomInt(1,2),{detune: RandomInt(-700,700),});
         });
       }
       function displayPlacedCard(cardToDisplay){
@@ -191,6 +193,7 @@
           this.setScale(0.4);
         });
         placedCard.on("pointerdown",function(pointer){
+          scene.sound.playAudioSprite("cardFlaps","flap0"+RandomInt(1,2),{detune: RandomInt(-700,700),});
           if (!replaceMode){
             socket.emit("drawFromDiscard");
           }
@@ -218,6 +221,7 @@
                 this.y += 20;
             });
             cards[i].on('pointerdown', function (pointer) {
+              scene.sound.playAudioSprite("cardFlaps","flap0"+RandomInt(1,2),{detune: RandomInt(-700,700),});
               if (revealMode){
                 revealAmount--;
                 socket.emit("selectSeeCard",{card:i});
@@ -256,5 +260,8 @@
       }
       return ret;
     }
+    function RandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
   </script>
 </html>

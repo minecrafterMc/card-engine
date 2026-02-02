@@ -82,10 +82,11 @@ io.on("connection", (socket) => {
       delete rooms[socket.room];
     }
   });
-  socket.on("startGame", () => {
+  socket.on("startGame", (data) => {
     if (rooms[socket.room].players[0].id === socket.id && !rooms[socket.room].running) {
       rooms[socket.room].running = true;
       rooms[socket.room].starting = true;
+      rooms[socket.room].config = data;
       for (let i = 0; i < rooms[socket.room].players.length; i++) {
         let tempId = RandomInt(0, 99999999);
         io.sockets.sockets.get(rooms[socket.room].players[i].id).emit("startingGame", { id: tempId });

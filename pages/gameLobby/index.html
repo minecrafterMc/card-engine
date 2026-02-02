@@ -6,9 +6,15 @@
     <title>Document</title>
 </head>
 <body>
+    <div id="hostPanel">
+        <p>amount of decks of cards</p>
+        <input min="1" value="1" type="number" id="deckAmount">
+        <p>starting hand size</p>
+        <input min="1" value="4" type="number" id="startingHandSize">
+    </div>
     <input type="text" id="username" placeholder="Enter your username">
     <button id="joinBtn" onclick="join()">Join Game Lobby</button>
-    <button id="startBtn" onclick="socket.emit('startGame')">Start Game</button>
+    <button id="startBtn" onclick="startGame()">Start Game</button>
     <div id="users"><p>Players:</p></div>
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -25,11 +31,13 @@
                 userEntry.textContent = `${e[i].name} ${i === 0 ? "(Host)" : ""}`;
                 usersDiv.appendChild(userEntry);
             }
+            document.getElementById("hostPanel").style.display = "none";
             document.getElementById("startBtn").style.display = "none";
             //document.getElementById("users")
         });
         socket.on("becameHost", () => {
             document.getElementById("startBtn").style.display = "block";
+            document.getElementById("hostPanel").style.display = "block";
             if (isHost) return;
             isHost = true;
             alert("You are now the host!");
@@ -42,6 +50,9 @@
             const username = document.getElementById("username").value;
             localStorage.setItem("CardEngine-username", username);
             socket.emit("joinGame", { name: username });
+        }
+        function startGame(){
+            socket.emit('startGame',{deckAmount:document.getElementById("deckAmount").value,startingHandSize:document.getElementById("startingHandSize").value})
         }
     </script>
 </body>

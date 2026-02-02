@@ -1,0 +1,17 @@
+{
+    "resources":[
+        "/assets/cardFlaps.ogg"
+    ],
+    "spritemap": {
+        "flap01": {
+            "start": 0.03,
+            "end": 0.2,
+            "loop": false
+        },
+        "flap02": {
+            "start": 0.3,
+            "end": 0.7,
+            "loop": false
+        }
+    }
+}

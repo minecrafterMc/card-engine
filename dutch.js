@@ -17,11 +17,17 @@ function shuffle(array) {
 }
 class Table {
   constructor(room) {
+    this.config = room.config;
+    if (this.config.deckAmount == undefined){
+        this.config.deckAmount = 1;
+    }
+    if (this.config.startingHandSize == undefined){
+        this.config.startingHandSize = 4;
+    }
     this.players = room.players;
     this.discardPile = [];
     this.deck = [];
     this.turnIndex = 0;
-    this.startingHandSize = 4;
     let cardColors = ["h", "d", "s", "c"];
     let cardNumbers = [
       "A",
@@ -38,15 +44,17 @@ class Table {
       "Q",
       "K",
     ];
-    for (let color of cardColors) {
-      for (let number of cardNumbers) {
-        this.deck.push(number + color);
-      }
+    for (let i = 0;i<this.config.deckAmount;i++){
+        for (let color of cardColors) {
+          for (let number of cardNumbers) {
+            this.deck.push(number + color);
+          }
+        }
     }
     shuffle(this.deck);
     for (let player of this.players) {
       player.hand = [];
-      for (let i = 0; i < this.startingHandSize; i++) {
+      for (let i = 0; i < this.config.startingHandSize; i++) {
         player.hand.push(this.deck.pop());
       }
     }
@@ -151,7 +159,7 @@ export function DutchGame(socket, room, io) {
       //tables[room.id].discardPile.push[getPlayerById(room,socket.id).hand[data.id]];
 
       if (
-        tables[room.id].discardPile.length != 0 &&
+        tables[room.id].discardPile.length != 0 &&tables[room.id].discardPile[tables[room.id].discardPile.length - 1][0] != undefined &&
         getPlayerById(room, socket.id).hand[data.card][0] ==
           tables[room.id].discardPile[tables[room.id].discardPile.length - 1][0]
       ) {
@@ -205,14 +213,17 @@ export function DutchGame(socket, room, io) {
         }
         if (data.source == "deck") {
           if (data.card == -1) {
-            if (
-              tables[room.id].deck[tables[room.id].deck.length - 1][0] == "Q"
-            ) {
-              getPlayerById(room, socket.id).avaliableSeeings++;
-              socket.emit("canSeeCard", {
-                amount: getPlayerById(room, socket.id).avaliableSeeings,
-              });
-            }
+            try{
+                if (
+                  tables[room.id].deck[tables[room.id].deck.length - 1][0] == "Q"
+                ) {
+                  getPlayerById(room, socket.id).avaliableSeeings++;
+                  socket.emit("canSeeCard", {
+                    amount: getPlayerById(room, socket.id).avaliableSeeings,
+                  });
+                }
+
+            }catch(e){}
             tables[room.id].discardPile.push(tables[room.id].deck.pop());
             socket.emit("updateHand", {
               hand: getPlayerById(room, socket.id).hand.length,
