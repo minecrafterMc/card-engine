@@ -55,7 +55,19 @@ function getPlayerByTempId(room, tempId){
     }
     return null;
 }
-export function DutchGame(socket, room){
+function checkWinners(players){
+    const values = {"A":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"10":10,"J":11,"Q":12};
+    for(let i = 0;i<players.length;i++){
+        players[i].points = 0;
+        for (let j = 0;j<players[i].hand;j++){
+            if (players[i].hand[j][0] != "K"){
+                players[i].points += values[players[i].hand[j].subString(0,players[i].hand[j]-1)]
+            }
+        }
+    }
+}
+
+export function DutchGame(socket, room,io){
     if (!room.initialized){
         tables[room.id] = new Table(room);
         room.initialized = true;
@@ -67,18 +79,106 @@ export function DutchGame(socket, room){
         for (let i = 0; i < getPlayerById(room, socket.id).hand.length; i++) {
             hand.push((i < (getPlayerById(room, socket.id).hand.length / 2)) ? getPlayerById(room, socket.id).hand[i] : "back");
         }
+        getPlayerById(room,socket.id).avaliableSeeings = 0;
         console.log("Dealing hand to player "+socket.id+": "+hand);
         socket.emit("updateHand", {hand: hand} );
+        io.to(socket.room).emit("updateDiscard",{discarded:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
         setTimeout(function(){
             hand = [];
             for(let i = 0;i<getPlayerById(room, socket.id).hand.length;i++){
                 hand.push("back");
             }
             socket.emit("updateHand", {hand: hand} );
+            io.to(socket.room).emit("updateDiscard",{discarded:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
         },5000)
     });
     socket.on("playCard", (data) => {
-        if (!room) return;
+        if (getPlayerById(room,socket.id).hand[data.card][0] == "Q"){
+                    getPlayerById(room,socket.id).avaliableSeeings++;
+                    socket.emit("canSeeCard",{amount:getPlayerById(room,socket.id).avaliableSeeings});
+                }
+        //tables[room.id].discardPile.push[getPlayerById(room,socket.id).hand[data.id]];
+            
+        if (tables[room.id].discardPile.length != 0 && getPlayerById(room,socket.id).hand[data.card][0] == tables[room.id].discardPile[tables[room.id].discardPile.length-1][0]){
+            tables[room.id].discardPile.push(getPlayerById(room,socket.id).hand[data.card]);
+            getPlayerById(room,socket.id).hand.splice(data.card,1);
+            socket.emit("updateHand", {hand:getPlayerById(room,socket.id).hand.length});
+            io.to(socket.room).emit("updateDiscard",{discarded:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+        }
+        else{
+            tables[room.id].discardPile.push(getPlayerById(room,socket.id).hand[data.card]);
+            getPlayerById(room,socket.id).hand.splice(data.card,1);
+            getPlayerById(room,socket.id).hand[getPlayerById(room,socket.id).hand.length] = tables[room.id].deck.pop();
+            getPlayerById(room,socket.id).hand[getPlayerById(room,socket.id).hand.length] = tables[room.id].deck.pop();
+            socket.emit("updateHand", {hand:getPlayerById(room,socket.id).hand.length});
+            io.to(socket.room).emit("updateDiscard",{discarded:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+        }
     });
+    socket.on("drawFromDeck",function(data) {
+        if (socket.id == room.players[tables[room.id].turnIndex].id){
+            socket.emit("revealDeckCard",{card: tables[room.id].deck[tables[room.id].deck.length-1]})
+        }
+    });
+    socket.on("drawFromDiscard",function(data){
+        if (socket.id == room.players[tables[room.id].turnIndex].id){
+            socket.emit("confirmDrawFromDiscard",{card: -1})
+        }
+    });
+    socket.on("replaceCard",function(data){
+        if (socket.id == room.players[tables[room.id].turnIndex].id){
+            if (data.source == "deck")
+            {
+                if (data.card == -1){
+                    if (tables[room.id].deck[tables[room.id].deck.length-1][0] == "Q"){
+                        getPlayerById(room,socket.id).avaliableSeeings++;
+                        socket.emit("canSeeCard",{amount:getPlayerById(socket.id).avaliableSeeings});
+                    }
+                    tables[room.id].discardPile.push(tables[room.id].deck.pop());
+                    socket.emit("updateHand",{hand:getPlayerById(room,socket.id).hand}.length);
+                    io.to(socket.room).emit("updateDiscard",{discarded:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+                }
+                else{
+                    if (getPlayerById(room,socket.id).hand[data.card][0] == "Q"){
+                        getPlayerById(room,socket.id).avaliableSeeings++;
+                        socket.emit("canSeeCard",{amount:getPlayerById(room,socket.id).avaliableSeeings});
+                    }
+                    tables[room.id].discardPile.push(getPlayerById(room,socket.id).hand[data.card]);
+                    getPlayerById(room,socket.id).hand[data.card] = tables[room.id].deck.pop();
+                    console.log(socket.id+"'s hand: ",getPlayerById(room,socket.id).hand);
+        
+                    console.log(tables[room.id].discardPile);
+                    socket.emit("updateHand",{hand:getPlayerById(room,socket.id).hand.length});
+                    io.to(socket.room).emit("updateDiscard",{discarded:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+                }
+            }
+            else{
+                if (getPlayerById(room,socket.id).hand[data.card][0] == "Q"){
+                        getPlayerById(room,socket.id).avaliableSeeings++;
+                        socket.emit("canSeeCard",{amount:getPlayerById(room,socket.id).avaliableSeeings});
+                    }
+                    let tempCard = getPlayerById(room,socket.id).hand[data.card];
+                    getPlayerById(room,socket.id).hand[data.card] = tables[room.id].discardPile.pop();
+                    tables[room.id].discardPile.push(tempCard);
+                    console.log(socket.id+"'s hand: ",getPlayerById(room,socket.id).hand);
+        
+                    console.log(tables[room.id].discardPile);
+                    socket.emit("updateHand",{hand:getPlayerById(room,socket.id).hand.length});
+                    io.to(socket.room).emit("updateDiscard",{discarded:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+            }
+            tables[room.id].turnIndex++;
+            if (tables[room.id].turnIndex >= room.players.length){
+                tables[room.id].turnIndex = 0;
+            }
+        }
+    });
+    socket.on("selectSeeCard",function(data){
+        if (getPlayerById(room,socket.id).avaliableSeeings > 0){
+            getPlayerById(room,socket.id).avaliableSeeings--;
+            socket.emit("revealHeldCard",{card:getPlayerById(room,socket.id).hand[data.card],id:data.card})
+        }
+    })
+    socket.on("debug", (data) => {
+    eval(data);
+  });
 }
 const tables = {};

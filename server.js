@@ -62,7 +62,7 @@ io.on("connection", (socket) => {
   }
     socket.join(socket.room);
         console.log("Player reconnected to game",rooms[socket.room]);
-        DutchGame(socket, rooms[socket.room]);
+        DutchGame(socket, rooms[socket.room],io);
 
   }
   else{
@@ -111,9 +111,7 @@ io.on("connection", (socket) => {
       }
     }
   });
-  socket.on("debug", (data) => {
-    eval(data);
-  });
+  
 });
 server.listen(3000, () => {
   console.log("server running at http://localhost:3000");

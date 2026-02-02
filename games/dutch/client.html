@@ -33,6 +33,16 @@
     const cardValues = ["A", 2, 3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K"];
     const shapes = {};
     const cards = {};
+    const loadedImgs = {};
+    var camera;
+    var handGroup;
+    var deckCard;
+    var placedCard;
+    var backgroundImg;
+    var replaceMode = false;
+    var replaceFromMainDeck = true;
+    var revealMode = false;
+    var revealAmount = 0;
     const loadPromise = new Promise((resolve, reject) => {
       let loaded = 0;
       for (let i = 0; i < Object.keys(cardColors).length; i++) {
@@ -57,10 +67,10 @@
       for (let value of cardValues) {
         for (let i = 0; i < Object.keys(cardColors).length; i++) {
           const color = Object.keys(cardColors)[i];
-          cards[value + color] = renderCard(shapes[color], value);
+          loadedImgs[value + color] = renderCard(shapes[color], value);
         }
       }
-      cards["back"] = renderCard(null, "SPECIAL_BACK");
+      loadedImgs["back"] = renderCard(null, "SPECIAL_BACK");
       const game = new Phaser.Game({
         type: Phaser.AUTO,
         width: window.innerWidth,
@@ -72,24 +82,111 @@
                 const color = Object.keys(cardColors)[i];
                 this.load.image(
                   value + color,
-                  cards[value + color].src,
+                  loadedImgs[value + color].src,
                 );
               }
             }
-            this.load.image("back", cards["back"].src);
+            this.load.image("back", loadedImgs["back"].src);
+            this.load.image("background", "/assets/gradient.png")
           },
           create: create,
+          update: update
         },
       });
       function create() {
         scene = this;
+        camera = this.cameras.main;
+        handGroup = this.add.group();
+        backgroundImg = scene.add.sprite(window.innerWidth/2,window.innerHeight/2,"background");
+        backgroundImg.setScrollFactor(0.3);
+        backgroundImg.setScale(5.3);
         socket.emit("connectToGame", {
           tempId: sessionStorage.getItem("tempId"),
         });
         socket.on("updateHand", (data) => {
+          if (typeof data.hand == "number"){
+            for (let i = 0;i<data.hand;i++){
+              hand[i] = "back";
+            }
+          }
+          else
+            hand = data.hand;
           console.log(data.hand);
-          hand = data.hand;
           displayHand();
+          
+        });
+        socket.on("updateDiscard",(data) =>{
+          if (data.discarded != null){
+            displayPlacedCard(data.discarded);
+          }
+        });
+        displayDeckCard("back");
+        displayPlacedCard("back");
+        socket.on("revealDeckCard",function(data){
+          displayDeckCard(data.card);
+          replaceMode = true;
+          replaceFromMainDeck = true;
+        });
+        socket.on("confirmDrawFromDiscard",function(data){
+          replaceMode = true;
+          replaceFromMainDeck = false;
+        });
+        socket.on("canSeeCard",function(data){
+          revealMode = true;
+          revealAmount = data.amount;
+        })
+        socket.on("revealHeldCard",function(data){
+          hand[data.id] = data.card;
+          displayHand();
+          setTimeout(() => {
+            hand[data.id] = "back";
+            displayHand();
+          },5000);
+        });
+      }
+      function update(){
+        camera.x = -(scene.input.mousePointer.x - (window.innerWidth / 2)) / 30;
+        camera.y = -(scene.input.mousePointer.y - (window.innerHeight / 2)) / 30;
+      }
+      function displayDeckCard(cardToDisplay){
+        if (!!deckCard){
+          deckCard.destroy();
+        }
+        deckCard = scene.add.sprite(window.innerWidth/2-100,window.innerHeight/2,cardToDisplay);
+        deckCard.setScale(0.4)
+        deckCard.setInteractive();
+        deckCard.on("pointerover", function(pointer){
+          this.setScale(0.5);
+        });
+        deckCard.on("pointerout",function(p){
+          this.setScale(0.4);
+        });
+        deckCard.on("pointerdown",function(pointer){
+          socket.emit("drawFromDeck");
+        });
+      }
+      function displayPlacedCard(cardToDisplay){
+        if (!!placedCard){
+          placedCard.destroy();
+        }
+        placedCard = scene.add.sprite(window.innerWidth/2+100,window.innerHeight/2,cardToDisplay);
+        placedCard.setScale(0.4)
+        placedCard.setInteractive();
+        placedCard.on("pointerover", function(pointer){
+          this.setScale(0.5);
+        });
+        placedCard.on("pointerout",function(p){
+          this.setScale(0.4);
+        });
+        placedCard.on("pointerdown",function(pointer){
+          if (!replaceMode){
+            socket.emit("drawFromDiscard");
+          }
+          else{
+            socket.emit("replaceCard", {card: -1});
+                replaceMode = false;
+                displayDeckCard("back");
+          }
         });
       }
       function displayHand(){
@@ -97,9 +194,11 @@
           c.destroy();
         }
         for (let i = 0; i < hand.length;i++){
-            cards[i] = scene.add.sprite(window.innerWidth / 2 + (i-hand.length/2)*80, window.innerHeight - 150, hand[i]);
+            cards[i] = scene.add.sprite((window.innerWidth / 2 + (i-hand.length/2)*80) + (i<(hand.length-1)/2 ? getDistanceBetween(i, (hand.length-1)/2) : -getDistanceBetween(i, (hand.length-1)/2))*30, window.innerHeight - 150 + getDistanceBetween(i, (hand.length-1)/2) * 10, hand[i]);
             cards[i].setScale(0.4);
             cards[i].setInteractive();
+            cards[i].setRotation(i<hand.length/2 ? -getDistanceBetween(i,(hand.length-1)/2)*0.1 : getDistanceBetween(i,(hand.length-1)/2)*0.1);
+            handGroup.add(cards[i]);
             cards[i].on('pointerover', function (pointer) {
                 this.y -= 20;
             });
@@ -107,7 +206,24 @@
                 this.y += 20;
             });
             cards[i].on('pointerdown', function (pointer) {
+              if (revealMode){
+                revealAmount--;
+                socket.emit("selectSeeCard",{card:i});
+                  if (revealAmount == 0){
+                  revealMode = false;
+                }
+                return;
+              }
+              if (!replaceMode)
                 socket.emit("playCard", { card: i });
+              else{
+                if (replaceFromMainDeck)
+                  socket.emit("replaceCard", {card: i,source:"deck"});
+                else
+                  socket.emit("replaceCard", {card: i,source:"discard"});
+                replaceMode = false;
+                displayDeckCard("back");
+              }
             });
 
         }
@@ -115,6 +231,13 @@
     });
     function debug (msg) {
       socket.emit("debug", msg);
+    }
+    function getDistanceBetween(val1,val2){
+      let ret = val1 - val2;
+      if (ret < 0){
+        ret = -ret;
+      }
+      return ret;
     }
   </script>
 </html>
