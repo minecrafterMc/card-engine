@@ -2,8 +2,9 @@ const canvas = document.createElement("canvas");
 const cardWidth = 250;
 const cardHeight = 400;
 const strokeWidth = 5;
-const cardBackground = "#242424";
+const cardBackground = "#bbbbbb";
 const detailColor = "#000000";
+const outlineColor = "#FFFFFF";
 const symbolSize = 50;
 canvas.width = cardWidth+20;
 canvas.height = cardHeight+20;
@@ -21,14 +22,18 @@ function RandomInt(min, max) {
             ctx.lineWidth = strokeWidth;
             ctx.beginPath();
             ctx.roundRect(10,10,cardWidth,cardHeight,20);
-        
+            
             ctx.fill();
             ctx.stroke();
             ctx.closePath();
             ctx.fillStyle = detailColor;
             ctx.font = "bold 48px serif";
             ctx.textAlign = "center";
+            ctx.strokeStyle = outlineColor;
+            ctx.lineWidth = 4;
+            //ctx.strokeText("CARD",canvas.width/2,canvas.height/2-30);
             ctx.fillText("CARD",canvas.width/2,canvas.height/2-30);
+            //ctx.strokeText("ENGINE",canvas.width/2,canvas.height/2+30);
             ctx.fillText("ENGINE",canvas.width/2,canvas.height/2+30);
             let img = document.createElement("img");
             img.src = canvas.toDataURL();
@@ -43,12 +48,15 @@ function RandomInt(min, max) {
         ctx.fill();
         ctx.stroke();
         ctx.closePath();
-            
+        
         ctx.fillStyle = shape.color;
         ctx.textAlign = "left";
         ctx.font = "bold 48px serif";
+        //ctx.strokeStyle = outlineColor;
+        //ctx.strokeText(number,strokeWidth*2+25,strokeWidth*2+50);
         ctx.fillText(number,strokeWidth*2+25,strokeWidth*2+50);
         ctx.textAlign = "right";
+        //ctx.strokeText(number,cardWidth-(strokeWidth*2),cardHeight-(strokeWidth*2));
         ctx.fillText(number,cardWidth-(strokeWidth*2),cardHeight-(strokeWidth*2));
         //ctx.fillRect(strokeWidth*2+15,strokeWidth*2+70+ctx.measureText(number).actualBoundingBoxDescent,50,50);
         ctx.drawImage(shape.img,strokeWidth*2+15,strokeWidth*2+70+ctx.measureText(number).actualBoundingBoxDescent,symbolSize,symbolSize);

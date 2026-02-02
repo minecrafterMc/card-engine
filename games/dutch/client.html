@@ -29,16 +29,18 @@
     socket.on("connection", (e) => {
       
     });
-    const cardColors = { h: "red", d: "orange", s: "black", c: "blue" };
+    const cardColors = { h: "red", d: "#9e5515", s: "black", c: "blue" };
     const cardValues = ["A", 2, 3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K"];
     const shapes = {};
     const cards = {};
     const loadedImgs = {};
+    const mouseMovementScale = 10;
     var camera;
     var handGroup;
     var deckCard;
     var placedCard;
     var backgroundImg;
+    var table;
     var replaceMode = false;
     var replaceFromMainDeck = true;
     var revealMode = false;
@@ -96,14 +98,23 @@
       function create() {
         scene = this;
         camera = this.cameras.main;
+        //console.log(scene.graphics);
         handGroup = this.add.group();
         backgroundImg = scene.add.sprite(window.innerWidth/2,window.innerHeight/2,"background");
         backgroundImg.setScrollFactor(0.3);
         backgroundImg.setScale(5.3);
+        table = scene.add.graphics();
+        table.fillStyle(0x87552a);
+        table.lineStyle(4,0x6b4421);
+        table.fillCircle(window.innerWidth/2,window.innerHeight/2,500);
+        table.strokeCircle(window.innerWidth/2,window.innerHeight/2,500);
+        table.setScrollFactor(0.7);
         socket.emit("connectToGame", {
           tempId: sessionStorage.getItem("tempId"),
         });
+        socket.on("fixDesync",fixDesync);
         socket.on("updateHand", (data) => {
+          hand = [];
           if (typeof data.hand == "number"){
             for (let i = 0;i<data.hand;i++){
               hand[i] = "back";
@@ -145,15 +156,15 @@
         });
       }
       function update(){
-        camera.x = -(scene.input.mousePointer.x - (window.innerWidth / 2)) / 30;
-        camera.y = -(scene.input.mousePointer.y - (window.innerHeight / 2)) / 30;
+        camera.setScroll((scene.input.mousePointer.x - (window.innerWidth / 2)) / mouseMovementScale,(scene.input.mousePointer.y - (window.innerHeight / 2)) / mouseMovementScale);
       }
       function displayDeckCard(cardToDisplay){
         if (!!deckCard){
           deckCard.destroy();
         }
         deckCard = scene.add.sprite(window.innerWidth/2-100,window.innerHeight/2,cardToDisplay);
-        deckCard.setScale(0.4)
+        deckCard.setScale(0.36)
+        deckCard.setScrollFactor(0.7);
         deckCard.setInteractive();
         deckCard.on("pointerover", function(pointer){
           this.setScale(0.5);
@@ -170,7 +181,8 @@
           placedCard.destroy();
         }
         placedCard = scene.add.sprite(window.innerWidth/2+100,window.innerHeight/2,cardToDisplay);
-        placedCard.setScale(0.4)
+        placedCard.setScale(0.36)
+        placedCard.setScrollFactor(0.7);
         placedCard.setInteractive();
         placedCard.on("pointerover", function(pointer){
           this.setScale(0.5);
@@ -183,7 +195,7 @@
             socket.emit("drawFromDiscard");
           }
           else{
-            socket.emit("replaceCard", {card: -1});
+            socket.emit("replaceCard", {card: -1,source:"deck"});
                 replaceMode = false;
                 displayDeckCard("back");
           }
@@ -194,11 +206,11 @@
           c.destroy();
         }
         for (let i = 0; i < hand.length;i++){
-            cards[i] = scene.add.sprite((window.innerWidth / 2 + (i-hand.length/2)*80) + (i<(hand.length-1)/2 ? getDistanceBetween(i, (hand.length-1)/2) : -getDistanceBetween(i, (hand.length-1)/2))*30, window.innerHeight - 150 + getDistanceBetween(i, (hand.length-1)/2) * 10, hand[i]);
+            cards[i] = scene.add.sprite((window.innerWidth / 2 + (i-hand.length/2)*80) + (i<(hand.length-1)/2 ? getDistanceBetween(i, (hand.length-1)/2) : -getDistanceBetween(i, (hand.length-1)/2))*30, window.innerHeight - 30 + getDistanceBetween(i, (hand.length-1)/2) * 10, hand[i]);
             cards[i].setScale(0.4);
             cards[i].setInteractive();
             cards[i].setRotation(i<hand.length/2 ? -getDistanceBetween(i,(hand.length-1)/2)*0.1 : getDistanceBetween(i,(hand.length-1)/2)*0.1);
-            handGroup.add(cards[i]);
+            //handGroup.add(cards[i]);
             cards[i].on('pointerover', function (pointer) {
                 this.y -= 20;
             });
@@ -227,6 +239,11 @@
             });
 
         }
+      }
+      function fixDesync(){
+        replaceMode = false;
+        revealMode = false;
+        revealAmount = 0;
       }
     });
     function debug (msg) {
