@@ -32,19 +32,25 @@
     const cardColors = { h: "red", d: "#9e5515", s: "black", c: "blue" };
     const cardValues = ["A", 2, 3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K"];
     const shapes = {};
-    const cards = {};
+    var cards = {};
     const loadedImgs = {};
     const mouseMovementScale = 10;
+    var opponentCards = [];
     var camera;
     var handGroup;
     var deckCard;
     var placedCard;
     var backgroundImg;
     var table;
+    var playersMenu;
+    var dutchButton;
+    var animationCard = [];
     var replaceMode = false;
     var replaceFromMainDeck = true;
     var revealMode = false;
     var revealAmount = 0;
+    var scene;
+    var animationData = [];
     const loadPromise = new Promise((resolve, reject) => {
       let loaded = 0;
       for (let i = 0; i < Object.keys(cardColors).length; i++) {
@@ -63,9 +69,8 @@
           resolve();
         }
       }, 100);
-    }).then(() => {
-      var scene;
-      const cards = [];
+    }).then(function() {
+      cards = [];
       for (let value of cardValues) {
         for (let i = 0; i < Object.keys(cardColors).length; i++) {
           const color = Object.keys(cardColors)[i];
@@ -90,6 +95,7 @@
             }
             this.load.image("back", loadedImgs["back"].src);
             this.load.image("background", "/assets/gradient.png");
+            this.load.image("dutchBtn","/assets/dutchButton.png");
             this.load.audioSprite("cardFlaps","/assets/cardFlaps.json",["/assets/cardFlaps.ogg"]);
           },
           create: create,
@@ -110,6 +116,16 @@
         table.fillCircle(window.innerWidth/2,window.innerHeight/2,500);
         table.strokeCircle(window.innerWidth/2,window.innerHeight/2,500);
         table.setScrollFactor(0.7);
+        dutchButton = scene.add.sprite(window.innerWidth/2,window.innerHeight/2-200,"dutchBtn");
+        dutchButton.setScrollFactor(0.7);
+        dutchButton.setScale(0.6);
+        dutchButton.setInteractive();
+        dutchButton.on("pointerover", function(pointer){
+          this.setScale(0.7);
+        });
+        dutchButton.on("pointerout",function(p){
+          this.setScale(0.6);
+        });
         socket.emit("connectToGame", {
           tempId: sessionStorage.getItem("tempId"),
         });
@@ -155,9 +171,40 @@
             displayHand();
           },5000);
         });
+        socket.on("replacedCard",function(data){
+          if (data.source == "deckToDiscard"){
+            setAnimation(data.card,{x:window.innerWidth/2-100,y:window.innerHeight/2},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,100);
+
+          }
+          else if (data.source == "deck"){
+            setAnimation(data.card,{x:window.innerWidth/2-100,y:window.innerHeight/2},{x:window.innerWidth/2,y:window.innerHeight-30},0.4,0.36,200);
+            setAnimation("back",{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+          }
+          else if (data.source == "discard"){
+            setAnimation(data.card,{x:window.innerWidth/2+100,y:window.innerHeight/2},{x:window.innerWidth/2,y:window.innerHeight-30},0.4,0.36,200);
+            setAnimation("back",{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+          }
+          else if (data.source == "throwCard"){
+            setAnimation(data.card,{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+          }
+        })
       }
-      function update(){
+      function update(frame,deltaTime){
         camera.setScroll((scene.input.mousePointer.x - (window.innerWidth / 2)) / mouseMovementScale,(scene.input.mousePointer.y - (window.innerHeight / 2)) / mouseMovementScale);
+        for (let i = 0;i<animationData.length;i++){
+          if (animationData[i] != undefined && animationData[i].isAnimating){
+            animationData[i].step += deltaTime;
+            animationCard[i].x = Phaser.Math.Linear(animationData[i].startx,animationData[i].destinationx, animationData[i].step/animationData[i].duration);
+            animationCard[i].y = Phaser.Math.Linear(animationData[i].starty,animationData[i].destinationy, animationData[i].step/animationData[i].duration);
+            animationCard[i] .setScale(Phaser.Math.Linear(animationData[i].startScale,animationData[i].destinationScale,animationData[i].step/animationData[i].duration));
+            if (animationData[i].step >= animationData[i].duration){
+              animationData[i].isAnimating = false;
+              animationCard[i].destroy();
+              animationCard[i] = undefined;
+              animationData[i] = undefined;
+            }
+          }
+        }
       }
       function displayDeckCard(cardToDisplay){
         if (!!deckCard){
@@ -171,7 +218,7 @@
           this.setScale(0.5);
         });
         deckCard.on("pointerout",function(p){
-          this.setScale(0.4);
+          this.setScale(0.36);
         });
         deckCard.on("pointerdown",function(pointer){
           socket.emit("drawFromDeck");
@@ -190,7 +237,7 @@
           this.setScale(0.5);
         });
         placedCard.on("pointerout",function(p){
-          this.setScale(0.4);
+          this.setScale(0.36);
         });
         placedCard.on("pointerdown",function(pointer){
           scene.sound.playAudioSprite("cardFlaps","flap0"+RandomInt(1,2),{detune: RandomInt(-700,700),});
@@ -230,6 +277,51 @@
                 }
                 return;
               }
+              else if (!replaceMode)
+                socket.emit("playCard", { card: i });
+              else{
+                if (replaceFromMainDeck)
+                {
+                  socket.emit("replaceCard", {card: i,source:"deck"});
+                  
+                }
+                else{
+                  socket.emit("replaceCard", {card: i,source:"discard"});
+                  setAnimation("back",{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+                }
+                replaceMode = false;
+                displayDeckCard("back");
+              }
+            });
+
+        }
+      }
+      function displayOpponentHand(player){
+        for (let c of opponentCards){
+          c.destroy();
+        }
+        for (let i = 0; i < player.hand.length;i++){
+            cards[i] = scene.add.sprite((window.innerWidth / 2 + (i-hand.length/2)*80) + (i<(hand.length-1)/2 ? getDistanceBetween(i, (hand.length-1)/2) : -getDistanceBetween(i, (hand.length-1)/2))*30, window.innerHeight - 30 + getDistanceBetween(i, (hand.length-1)/2) * 10, hand[i]);
+            cards[i].setScale(0.4);
+            cards[i].setInteractive();
+            cards[i].setRotation(i<hand.length/2 ? -getDistanceBetween(i,(hand.length-1)/2)*0.1 : getDistanceBetween(i,(hand.length-1)/2)*0.1);
+            //handGroup.add(cards[i]);
+            cards[i].on('pointerover', function (pointer) {
+                this.y -= 20;
+            });
+            cards[i].on('pointerout', function (pointer) {
+                this.y += 20;
+            });
+            cards[i].on('pointerdown', function (pointer) {
+              scene.sound.playAudioSprite("cardFlaps","flap0"+RandomInt(1,2),{detune: RandomInt(-700,700),});
+              if (revealMode){
+                revealAmount--;
+                socket.emit("selectSeeCard",{card:i});
+                  if (revealAmount == 0){
+                  revealMode = false;
+                }
+                return;
+              }
               if (!replaceMode)
                 socket.emit("playCard", { card: i });
               else{
@@ -243,6 +335,32 @@
             });
 
         }
+      }
+      function setAnimation(textureId,p1,p2,s1,s2,t){
+        let index;
+        if (animationData.length == 0){
+          index = 0;
+        }
+        else{
+          let i = 0;
+          while (animationData[i] != undefined)
+          {
+            i++;
+          }
+          index = i;
+        }
+        animationCard[index] = scene.add.sprite(p1.x,p1.y,textureId);
+        animationCard[index].setScale(s1);
+        animationData[index] = {};
+        animationData[index].startScale = s1;
+        animationData[index].destinationScale = s2;
+        animationData[index].destinationx = p2.x;
+        animationData[index].destinationy = p2.y;
+        animationData[index].startx = p1.x;
+        animationData[index].starty = p1.y;
+        animationData[index].step = 0;
+        animationData[index].duration = t;
+        animationData[index].isAnimating = true;
       }
       function fixDesync(){
         replaceMode = false;

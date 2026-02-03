@@ -116,6 +116,13 @@ export function DutchGame(socket, room, io) {
       }
       getPlayerByTempId(room, data.tempId).id = socket.id;
       let hand = [];
+      if (!getPlayerById(room, socket.id).initialized){
+        getPlayerById(room, socket.id).initialized = true;
+      }
+      else{
+        socket.emit("updateHand",{hand:getPlayerById(room, socket.id).hand.length});
+        return;
+      }
       for (let i = 0; i < getPlayerById(room, socket.id).hand.length; i++) {
         hand.push(
           i < getPlayerById(room, socket.id).hand.length / 2
@@ -170,9 +177,10 @@ export function DutchGame(socket, room, io) {
         socket.emit("updateHand", {
           hand: getPlayerById(room, socket.id).hand.length,
         });
+        io.to(socket.room).emit("replacedCard",{source:"throwCard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
         io.to(socket.room).emit("updateDiscard", {
           discarded:
-            tables[room.id].discardPile[tables[room.id].discardPile.length - 1],
+          tables[room.id].discardPile[tables[room.id].discardPile.length - 1],
         });
       } else {
         tables[room.id].discardPile.push(
@@ -188,6 +196,7 @@ export function DutchGame(socket, room, io) {
         socket.emit("updateHand", {
           hand: getPlayerById(room, socket.id).hand.length,
         });
+        io.to(socket.room).emit("replacedCard",{source:"throwCard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
         io.to(socket.room).emit("updateDiscard", {
           discarded:
             tables[room.id].discardPile[tables[room.id].discardPile.length - 1],
@@ -225,14 +234,16 @@ export function DutchGame(socket, room, io) {
 
             }catch(e){}
             tables[room.id].discardPile.push(tables[room.id].deck.pop());
+            io.to(socket.room).emit("replacedCard",{source:"deckToDiscard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+            
             socket.emit("updateHand", {
               hand: getPlayerById(room, socket.id).hand.length,
             });
             io.to(socket.room).emit("updateDiscard", {
               discarded:
-                tables[room.id].discardPile[
-                  tables[room.id].discardPile.length - 1
-                ],
+              tables[room.id].discardPile[
+                tables[room.id].discardPile.length - 1
+              ],
             });
           } else {
             if (getPlayerById(room, socket.id).hand[data.card][0] == "Q") {
@@ -245,16 +256,18 @@ export function DutchGame(socket, room, io) {
               getPlayerById(room, socket.id).hand[data.card],
             );
             getPlayerById(room, socket.id).hand[data.card] =
-              tables[room.id].deck.pop();
+            tables[room.id].deck.pop();
             console.log(
               socket.id + "'s hand: ",
               getPlayerById(room, socket.id).hand,
             );
-
+            
             console.log(tables[room.id].discardPile);
             socket.emit("updateHand", {
               hand: getPlayerById(room, socket.id).hand.length,
             });
+            socket.emit("replacedCard",{source:"deck",card:getPlayerById(room, socket.id).hand[data.card]});
+            
             io.to(socket.room).emit("updateDiscard", {
               discarded:
                 tables[room.id].discardPile[
@@ -282,6 +295,7 @@ export function DutchGame(socket, room, io) {
           socket.emit("updateHand", {
             hand: getPlayerById(room, socket.id).hand.length,
           });
+          socket.emit("replacedCard",{source:"discard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
           io.to(socket.room).emit("updateDiscard", {
             discarded:
               tables[room.id].discardPile[
