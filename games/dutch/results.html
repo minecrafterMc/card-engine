@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .playerContainer{
+            display: flex;
+            flex-direction: row;
+            overflow-x: scroll;
+            flex-wrap: nowrap;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <script src="/card-generator"></script>
+    <script>
+        const cardColors = { "h": "red", "d": "#9e5515", "s": "black", "c": "blue" };
+        const cardValues = ["A", 2, 3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K"];
+        const shapes = {};
+        for (let i = 0; i < Object.keys(cardColors).length; i++) {
+        const color = Object.keys(cardColors)[i];
+        shapes[color] = new shape(
+          cardColors[color],
+          "/assets/" + color + "_symbol.png",
+          function () {},
+        );
+      }
+        const results = JSON.parse(sessionStorage.getItem("gameResults"));
+        setTimeout(function(){
+
+            for (let player of results.players){
+                let container = document.createElement("div");
+                container.className = "playerContainer";
+                let p = document.createElement("p");
+                p.textContent = player.name+": "+player.points+ " ";
+                p.style.fontSize = "50px"
+                container.appendChild(p);
+                
+                for (let card of player.hand){
+                    let number = card.slice(0,card.length-1);
+                    console.log(number,Number(number),Number(number) === NaN)
+                    
+                    if (!isNaN(Number(number))){
+                        number = Number(number);
+                    }
+                    let color = card[card.length-1];
+                    let img = renderCard(shapes[color],number);
+                    img.style.height = "150px"
+                    container.appendChild(img);
+                }
+                document.body.appendChild(container);
+            }
+        },1000);
+    </script>
+</body>
+</html>

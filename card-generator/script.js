@@ -84,11 +84,3 @@ class shape{
 class artShape extends shape{
 
 }
-var tests = new shape("#FF0000","test.png");
-var tests2 = new shape("#000000","test2.png")
-function displayCard(number,shapee){
-    var test = new card(shapee,number);
-    document.body.appendChild(test.render());
-    return test;
-}
-//displayCard(1);

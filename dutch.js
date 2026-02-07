@@ -78,6 +78,7 @@ function getPlayerByTempId(room, tempId) {
   return null;
 }
 function checkWinners(players) {
+  console.log(players);
   const values = {
     A: 1,
     2: 2,
@@ -92,17 +93,36 @@ function checkWinners(players) {
     J: 11,
     Q: 12,
   };
+  let gameResults = {name:"dutch",players:[]};
   for (let i = 0; i < players.length; i++) {
-    players[i].points = 0;
-    for (let j = 0; j < players[i].hand; j++) {
+    gameResults.players[i] = {name:players[i].name,hand:players[i].hand,points:0}
+    for (let j = 0; j < players[i].hand.length; j++) {
       if (players[i].hand[j][0] != "K") {
-        players[i].points +=
-          values[players[i].hand[j].subString(0, players[i].hand[j] - 1)];
+        gameResults.players[i].points +=
+          values[players[i].hand[j].slice(0, players[i].hand[j].length - 1)];
+      }
+      else{
+        if (players[i].hand[j][1] == "s" || players[i].hand[j][1] == "c"){
+          gameResults.players[i].points += 13;
+        }
       }
     }
   }
+  return gameResults;
 }
-
+function getClientReadyPlayerList(players){
+  let clientPlayers = []
+  for (let player of players){
+    let newPlayerData = {};
+    newPlayerData.name = player.name;
+    newPlayerData.hand = player.hand.length;
+    newPlayerData.id = player.id;
+    newPlayerData.connected = player.connected;
+    newPlayerData.initialized = player.initialized;
+    clientPlayers.push(newPlayerData);
+  }
+  return clientPlayers;
+}
 export function DutchGame(socket, room, io) {
     if (!room.initialized) {
       tables[room.id] = new Table(room);
@@ -116,6 +136,8 @@ export function DutchGame(socket, room, io) {
       }
       getPlayerByTempId(room, data.tempId).id = socket.id;
       let hand = [];
+      getPlayerById(room,socket.id).connected = true;
+      socket.emit("playerUpdate",{turn:tables[room.id].turnIndex,players:getClientReadyPlayerList(room.players)});
       if (!getPlayerById(room, socket.id).initialized){
         getPlayerById(room, socket.id).initialized = true;
       }
@@ -177,7 +199,7 @@ export function DutchGame(socket, room, io) {
         socket.emit("updateHand", {
           hand: getPlayerById(room, socket.id).hand.length,
         });
-        io.to(socket.room).emit("replacedCard",{source:"throwCard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+        io.to(socket.room).emit("playerAction",{source:"throwCard(sucess)",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
         io.to(socket.room).emit("updateDiscard", {
           discarded:
           tables[room.id].discardPile[tables[room.id].discardPile.length - 1],
@@ -196,12 +218,16 @@ export function DutchGame(socket, room, io) {
         socket.emit("updateHand", {
           hand: getPlayerById(room, socket.id).hand.length,
         });
-        io.to(socket.room).emit("replacedCard",{source:"throwCard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+        io.to(socket.room).emit("playerAction",{source:"throwCard(fail)",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
         io.to(socket.room).emit("updateDiscard", {
           discarded:
             tables[room.id].discardPile[tables[room.id].discardPile.length - 1],
         });
       }
+      if (tables[room.id].deck.length == 0){
+        room.ended = true;
+          io.to(room.id).emit("gameEnd",checkWinners(tables[room.id].players));
+        }
     });
     socket.on("drawFromDeck", function (data) {
       if (socket.id == room.players[tables[room.id].turnIndex].id) {
@@ -234,7 +260,7 @@ export function DutchGame(socket, room, io) {
 
             }catch(e){}
             tables[room.id].discardPile.push(tables[room.id].deck.pop());
-            io.to(socket.room).emit("replacedCard",{source:"deckToDiscard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+            io.to(socket.room).emit("playerAction",{source:"deckToDiscard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
             
             socket.emit("updateHand", {
               hand: getPlayerById(room, socket.id).hand.length,
@@ -266,8 +292,8 @@ export function DutchGame(socket, room, io) {
             socket.emit("updateHand", {
               hand: getPlayerById(room, socket.id).hand.length,
             });
-            socket.emit("replacedCard",{source:"deck",card:getPlayerById(room, socket.id).hand[data.card]});
-            
+            socket.emit("playerAction",{source:"deck",card:getPlayerById(room, socket.id).hand[data.card],player:"you"});
+            io.to(socket.room).emit("playerAction",{source:"deck",card:"back",player:socket.id})
             io.to(socket.room).emit("updateDiscard", {
               discarded:
                 tables[room.id].discardPile[
@@ -295,7 +321,7 @@ export function DutchGame(socket, room, io) {
           socket.emit("updateHand", {
             hand: getPlayerById(room, socket.id).hand.length,
           });
-          socket.emit("replacedCard",{source:"discard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
+          socket.emit("playerAction",{source:"discard",card:tables[room.id].discardPile[tables[room.id].discardPile.length-1]});
           io.to(socket.room).emit("updateDiscard", {
             discarded:
               tables[room.id].discardPile[
@@ -303,10 +329,15 @@ export function DutchGame(socket, room, io) {
               ],
           });
         }
+        if (tables[room.id].deck.length == 0){
+          room.ended = true;
+          io.to(room.id).emit("gameEnd",checkWinners(tables[room.id].players));
+        }
         tables[room.id].turnIndex++;
         if (tables[room.id].turnIndex >= room.players.length) {
           tables[room.id].turnIndex = 0;
         }
+        io.to(socket.room).emit("playerUpdate",{turn:tables[room.id].turnIndex,players:getClientReadyPlayerList(room.players)});
       }
     });
     socket.on("selectSeeCard", function (data) {

@@ -51,6 +51,10 @@
     var revealAmount = 0;
     var scene;
     var animationData = [];
+    var playerList;
+    var playerListObjects = [];
+    var playerListArrowObject;
+    var selectedOpponent = 0;
     const loadPromise = new Promise((resolve, reject) => {
       let loaded = 0;
       for (let i = 0; i < Object.keys(cardColors).length; i++) {
@@ -93,6 +97,7 @@
                 );
               }
             }
+            this.load.image("playerListArrow","/assets/arrow.png")
             this.load.image("back", loadedImgs["back"].src);
             this.load.image("background", "/assets/gradient.png");
             this.load.image("dutchBtn","/assets/dutchButton.png");
@@ -116,6 +121,9 @@
         table.fillCircle(window.innerWidth/2,window.innerHeight/2,500);
         table.strokeCircle(window.innerWidth/2,window.innerHeight/2,500);
         table.setScrollFactor(0.7);
+        playerListArrowObject = scene.add.sprite(0,0,"playerListArrow");
+        playerListArrowObject.setScrollFactor(0);
+        playerListArrowObject.setScale(0.6);
         dutchButton = scene.add.sprite(window.innerWidth/2,window.innerHeight/2-200,"dutchBtn");
         dutchButton.setScrollFactor(0.7);
         dutchButton.setScale(0.6);
@@ -171,21 +179,49 @@
             displayHand();
           },5000);
         });
-        socket.on("replacedCard",function(data){
+        socket.on("gameEnd",function(data){
+          sessionStorage.setItem("gameResults",JSON.stringify(data));
+          location.reload();
+        });
+        socket.on("playerUpdate",function(data){
+          playerList = data.players;
+          displayPlayerList();
+        })
+        socket.on("playerAction",function(data){
+          
           if (data.source == "deckToDiscard"){
             setAnimation(data.card,{x:window.innerWidth/2-100,y:window.innerHeight/2},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,100);
 
           }
           else if (data.source == "deck"){
-            setAnimation(data.card,{x:window.innerWidth/2-100,y:window.innerHeight/2},{x:window.innerWidth/2,y:window.innerHeight-30},0.4,0.36,200);
-            setAnimation("back",{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+            if (data.player == "you"){
+            
+              setAnimation(data.card,{x:window.innerWidth/2-100,y:window.innerHeight/2},{x:window.innerWidth/2,y:window.innerHeight-30},0.4,0.36,200);
+              setAnimation("back",{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+            }
           }
           else if (data.source == "discard"){
-            setAnimation(data.card,{x:window.innerWidth/2+100,y:window.innerHeight/2},{x:window.innerWidth/2,y:window.innerHeight-30},0.4,0.36,200);
-            setAnimation("back",{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+            if (data.player == "you"){
+            
+              setAnimation(data.card,{x:window.innerWidth/2+100,y:window.innerHeight/2},{x:window.innerWidth/2,y:window.innerHeight-30},0.4,0.36,200);
+              setAnimation("back",{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+            }
           }
-          else if (data.source == "throwCard"){
-            setAnimation(data.card,{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+          else if (data.source == "throwCard(sucess)"){
+            if (data.player == "you"){
+              setAnimation(data.card,{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+            }
+          }
+          else if (data.source == "throwCard(fail)"){
+            if (data.player == "you"){
+            
+              setAnimation(data.card,{x:window.innerWidth/2,y:window.innerHeight-30},{x:window.innerWidth/2+100,y:window.innerHeight/2},0.4,0.36,200);
+              setAnimation("back",{x:window.innerWidth/2-100,y:window.innerHeight/2},{x:window.innerWidth/2,y:window.innerHeight-30},0.4,0.36,200);
+              
+              setTimeout(function(){
+                setAnimation("back",{x:window.innerWidth/2-100,y:window.innerHeight/2},{x:window.innerWidth/2,y:window.innerHeight-30},0.4,0.36,200);
+              },50);
+            }
           }
         })
       }
@@ -300,19 +336,20 @@
         for (let c of opponentCards){
           c.destroy();
         }
-        for (let i = 0; i < player.hand.length;i++){
-            cards[i] = scene.add.sprite((window.innerWidth / 2 + (i-hand.length/2)*80) + (i<(hand.length-1)/2 ? getDistanceBetween(i, (hand.length-1)/2) : -getDistanceBetween(i, (hand.length-1)/2))*30, window.innerHeight - 30 + getDistanceBetween(i, (hand.length-1)/2) * 10, hand[i]);
-            cards[i].setScale(0.4);
-            cards[i].setInteractive();
-            cards[i].setRotation(i<hand.length/2 ? -getDistanceBetween(i,(hand.length-1)/2)*0.1 : getDistanceBetween(i,(hand.length-1)/2)*0.1);
+        for (let i = 0; i < playerList[player].hand;i++){
+            opponentCards[i] = scene.add.sprite((window.innerWidth / 2 + (i-playerList[player].hand/2)*80) + (i<(playerList[player].hand-1)/2 ? getDistanceBetween(i, (playerList[player].hand-1)/2) : -getDistanceBetween(i, (playerList[player].hand-1)/2))*30, 0 + 30 - getDistanceBetween(i, (playerList[player].hand-1)/2) * 10, "back");
+            opponentCards[i].setScale(0.4);
+            opponentCards[i].setInteractive();
+            opponentCards[i].setFlip(false,true);
+            opponentCards[i].setRotation(i<playerList[player].hand/2 ? -getDistanceBetween(i,(playerList[player].hand-1)/2)*0.1 : getDistanceBetween(i,(playerList[player].hand-1)/2)*0.1);
             //handGroup.add(cards[i]);
-            cards[i].on('pointerover', function (pointer) {
+            opponentCards[i].on('pointerover', function (pointer) {
                 this.y -= 20;
             });
-            cards[i].on('pointerout', function (pointer) {
+            opponentCards[i].on('pointerout', function (pointer) {
                 this.y += 20;
             });
-            cards[i].on('pointerdown', function (pointer) {
+            opponentCards[i].on('pointerdown', function (pointer) {
               scene.sound.playAudioSprite("cardFlaps","flap0"+RandomInt(1,2),{detune: RandomInt(-700,700),});
               if (revealMode){
                 revealAmount--;
@@ -334,6 +371,30 @@
               }
             });
 
+        }
+      }
+      function displayPlayerList(){
+        for (p of playerListObjects){
+          p[0].destroy();
+          p[1].destroy();
+        }
+        for (let i = 0;i < playerList.length;i++){
+          let hitbox = new Phaser.Geom.Rectangle(window.innerWidth-100,i*55,100,50);
+          playerListObjects[i] = [];
+          playerListObjects[i][0] = scene.add.graphics();
+          playerListObjects[i][0].fillStyle(0xFFFFFF,0.7);
+          playerListObjects[i][0].fillRoundedRect(window.innerWidth-100,i*55,100,50);
+          playerListObjects[i][1] = scene.add.text(window.innerWidth-90,i*55+20,playerList[i].name,{align:"center",color:"#000000"});
+          playerListObjects[i][0].setInteractive(hitbox, Phaser.Geom.Rectangle.Contains);
+          playerListObjects[i][0].setScrollFactor(0);
+          playerListObjects[i][1].setScrollFactor(0);
+          console.log(playerListObjects[i][0].index);
+          console.log(playerListObjects[i][0]);
+          playerListObjects[i][0].on("pointerdown",function(pointer){
+            playerListArrowObject.y = i*55;
+            playerListArrowObject.x = window.innerWidth-100;
+            displayOpponentHand(i);
+          });
         }
       }
       function setAnimation(textureId,p1,p2,s1,s2,t){

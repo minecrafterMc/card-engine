@@ -44,7 +44,7 @@
         });
         socket.on("startingGame", (data) => {
             sessionStorage.setItem("tempId", data.id);
-            window.location.href = "/game/"+ location.href.match(/(?<=\/lobby\/).{1,}/g)[0];
+            location.reload();
         });
         function join() {
             const username = document.getElementById("username").value;

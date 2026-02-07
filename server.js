@@ -20,22 +20,18 @@ app.param("room", (req, res, next, room) => {
   req.room = room;
   next();
 });
-app.get("/lobby/:room", (req, res) => {
-    if (!rooms[req.params.room]) {
-      new room(req.params.room, dutch);
-    }
-    if (rooms[req.params.room].running){
-        return res.send("Game in progress. Please wait for the next game to join.");
-    }
-    else{
-      res.sendFile(__dirname + "/pages/gameLobby/index.html");
-    }
-});
 app.get("/game/:room", (req, res) => {
   if (!rooms[req.params.room]) {
-    return res.send("Game not found.");
+    new room(req.params.room, dutch);
   }
-  res.sendFile(__dirname + "/games/dutch/client.html");
+  if (!rooms[req.params.room].ended && rooms[req.params.room].running){
+    res.sendFile(__dirname + "/games/dutch/client.html");
+  }
+  else if (rooms[req.params.room].ended){
+    res.sendFile(__dirname+"/games/dutch/results.html");
+  }
+  else
+    res.sendFile(__dirname + "/pages/gameLobby/index.html");
 });
 app.get("/engine.js", (req, res) => {
   res.sendFile(__dirname + "/engine.js");
@@ -44,31 +40,32 @@ app.get("/card-generator", (req, res) => {
   res.sendFile(__dirname + "/card-generator/script.js");
 });
 app.get("/assets/:asset", (req, res) => {
-  res.sendFile(__dirname + "/card-generator/assets/" + req.params.asset);
+  res.sendFile(__dirname + "/card-generator/assets/" + req.params.asset); 
 });
 io.on("connection", (socket) => {
   console.log("a user connected");
-  if (socket.handshake.headers.referer.match(/(?<=\/lobby\/).{1,}/g) != null){
-    socket.room = socket.handshake.headers.referer.match(/(?<=\/lobby\/).{1,}/g)[0];
-    if (!rooms[socket.room]) {
-    new room(socket.room, dutch);
-  }
-  }
-  
-  else if (socket.handshake.headers.referer.match(/(?<=\/game\/).{1,}/g) != null){
+  if (socket.handshake.headers.referer.match(/(?<=\/game\/).{1,}/g) != null){
     socket.room = socket.handshake.headers.referer.match(/(?<=\/game\/).{1,}/g)[0];
-    if (!rooms[socket.room]) {
-    return;
-  }
+    if (!rooms[socket.room]){
+      new room(socket.room, dutch);
+    }
+    if (rooms[socket.room].running) {
     socket.join(socket.room);
-        console.log("Player reconnected to game",rooms[socket.room]);
-        DutchGame(socket, rooms[socket.room],io);
+    console.log("Player reconnected to game",rooms[socket.room]);
+    DutchGame(socket, rooms[socket.room],io);
+  }
 
   }
   else{
     return;
   }
   socket.emit("playerList", rooms[socket.room].players );
+  for (let i = 0; i < rooms[socket.room].players.length; i++) {
+      if (rooms[socket.room].players[i].id === socket.id){
+        rooms[socket.room].players[i].connected = true;
+        break;
+      }
+    }
   socket.on("joinGame", (data) => {
     if (rooms[socket.room].players.find((p) => p.id === socket.id))
       return;
@@ -100,6 +97,10 @@ io.on("connection", (socket) => {
         rooms[socket.room].players.splice(i, 1);
         break;
       }
+      else if (rooms[socket.room].players[i].id === socket.id){
+        rooms[socket.room].players[i].connected = false;
+        break;
+      }
     }
     io.to(socket.room).emit("playerList", rooms[socket.room].players);
     if (rooms[socket.room].players.length > 0 && !rooms[socket.room].starting){
@@ -112,13 +113,15 @@ io.on("connection", (socket) => {
       }
     }
   });
-  
+  socket.on("debug", (data) => {
+      eval(data);
+    });
 });
 server.listen(3000, () => {
   console.log("server running at http://localhost:3000");
 });
 const games = {};
-const rooms ={};
+const rooms = {};
 function shuffle(array) {
   let currentIndex = array.length;
 
@@ -150,6 +153,7 @@ class room{
         this.deck = [...game.deck];
         this.discardPile = [];
         this.running = false;
+        this.ended = false;
         rooms[id] = this;
     }
 }
